@@ -1,0 +1,3088 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Шаттл «Арес-7» — 3D Прототип</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;700;800&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #06020c;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #F5F0E8;
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      z-index: 0;
+    }
+
+    #canvas-container canvas {
+      display: block;
+      touch-action: none;
+    }
+
+    /* UI Overlay */
+    .ui-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .ui-overlay>* {
+      pointer-events: auto;
+    }
+
+    /* Top HUD */
+    .hud-top {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .hud-card {
+      background: rgba(14, 8, 28, 0.72);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 18px;
+      padding: 12px 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .colony-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #00E5FF;
+      font-weight: 700;
+      text-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+    }
+
+    .colony-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      margin-top: 2px;
+      letter-spacing: 0.3px;
+    }
+
+    .dome-progress {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.75);
+      margin-top: 8px;
+      font-weight: 500;
+    }
+
+    .dome-bar {
+      width: 150px;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      margin-top: 5px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .dome-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00FF87 0%, #00D2FF 100%);
+      box-shadow: 0 0 10px rgba(0, 255, 135, 0.6);
+      border-radius: 6px;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .credits-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: #00E5FF;
+      text-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
+      padding: 12px 18px;
+    }
+
+    /* Bay status (top-center) */
+    .bays-status {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      background: rgba(14, 8, 28, 0.72);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 100px;
+      padding: 8px 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .bay-dot {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px dashed rgba(255, 255, 255, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .bay-dot.loaded {
+      background: rgba(0, 255, 135, 0.18);
+      border: 2px solid #00FF87;
+      color: #00FF87;
+      text-shadow: 0 0 8px rgba(0, 255, 135, 0.8);
+      box-shadow: 0 0 18px rgba(0, 255, 135, 0.45);
+      transform: scale(1.08);
+    }
+
+    /* Hint text (bottom center) */
+    .hint {
+      position: absolute;
+      bottom: 110px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(14, 8, 28, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 107, 53, 0.4);
+      border-radius: 100px;
+      padding: 12px 24px;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      max-width: 90vw;
+      box-shadow: 0 10px 30px rgba(255, 107, 53, 0.15);
+      animation: fadeSlide 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes fadeSlide {
+      from {
+        opacity: 0;
+        transform: translate(-50%, 16px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+    }
+
+    /* Status bar */
+    .status-bar {
+      position: absolute;
+      bottom: 110px;
+      left: 16px;
+      right: 16px;
+      background: rgba(14, 8, 28, 0.85);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      border-radius: 18px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 13px;
+      font-weight: 500;
+      max-width: 400px;
+      margin: 0 auto;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      z-index: 100;
+    }
+
+    .status-icon {
+      font-size: 26px;
+    }
+
+    .status-info {
+      flex: 1;
+    }
+
+    .status-progress {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .status-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00D2FF 0%, #0066FF 100%);
+      box-shadow: 0 0 8px rgba(0, 210, 255, 0.5);
+      transition: width 0.4s linear;
+    }
+
+    /* Launch Button (Epic) */
+    .launch-btn {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #FF6B35 0%, #FF2E93 100%);
+      color: white;
+      border: none;
+      border-radius: 20px;
+      padding: 18px 48px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      box-shadow: 0 12px 40px rgba(255, 46, 147, 0.55), inset 0 2px 0 rgba(255, 255, 255, 0.2);
+      text-transform: uppercase;
+      animation: pulseBtn 2s infinite;
+      display: none;
+      pointer-events: auto;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      z-index: 50;
+      min-height: 60px;
+      min-width: 220px;
+    }
+
+    @keyframes pulseBtn {
+
+      0%,
+      100% {
+        box-shadow: 0 12px 40px rgba(255, 46, 147, 0.45);
+        transform: translateX(-50%) scale(1);
+      }
+
+      50% {
+        box-shadow: 0 12px 60px rgba(255, 46, 147, 0.8);
+        transform: translateX(-50%) scale(1.03);
+      }
+    }
+
+    .launch-btn:active {
+      transform: translateX(-50%) scale(0.95) !important;
+    }
+
+    /* Modal Background */
+    .modal-bg {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 2, 8, 0.7);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 1000;
+      animation: bgFade 0.25s ease-out;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    @keyframes bgFade {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    /* Premium modal */
+    .modal {
+      width: 100%;
+      max-width: 440px;
+      background: linear-gradient(180deg, #150c26 0%, #06020c 100%);
+      border-radius: 28px 28px 0 0;
+      padding: 16px 24px 32px;
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      border-bottom: none !important;
+      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(120, 50, 255, 0.25) !important;
+      animation: modalSlide 0.35s cubic-bezier(0.1, 0.8, 0.25, 1);
+      max-height: 92vh;
+      overflow-y: auto;
+    }
+
+    @media (min-width: 500px) {
+      .modal-bg {
+        align-items: center;
+      }
+
+      .modal {
+        border-radius: 24px;
+        max-width: 440px;
+        margin: 0 16px;
+        border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      }
+    }
+
+    @keyframes modalSlide {
+      from {
+        transform: translateY(100%);
+      }
+
+      to {
+        transform: translateY(0);
+      }
+    }
+
+    .modal-handle {
+      width: 48px;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 3px;
+      margin: 0 auto 16px;
+    }
+
+    .modal-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: 0.2px;
+    }
+
+    .modal-subtitle {
+      font-size: 13.5px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 18px;
+      line-height: 1.5;
+    }
+
+    /* Resource row */
+    .resource-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 16px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .r-icon {
+      font-size: 42px;
+      filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.1));
+    }
+
+    .r-info {
+      flex: 1;
+    }
+
+    .r-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .r-stock {
+      font-size: 12.5px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 4px;
+    }
+
+    .have {
+      color: #00FF87;
+      font-weight: 700;
+    }
+
+    .lack {
+      color: #FF4D6D;
+      font-weight: 700;
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14.5px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.15s, background 0.15s, box-shadow 0.15s !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:active {
+      transform: scale(0.94) !important;
+    }
+
+    .btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #FF6B35 0%, #FF2E93 100%);
+      color: white;
+      box-shadow: 0 6px 20px rgba(255, 46, 147, 0.35);
+    }
+
+    .btn-primary:not(:disabled):hover {
+      box-shadow: 0 8px 25px rgba(255, 46, 147, 0.5);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.07);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .btn-credit {
+      background: linear-gradient(135deg, #00D2FF 0%, #0066FF 100%);
+      color: white;
+      box-shadow: 0 6px 20px rgba(0, 210, 255, 0.3);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .btn-ghost:hover {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    /* Interactive Radar calibration (Navigation Alignment) */
+    .radar-container {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      border: 2px solid rgba(0, 229, 255, 0.25);
+      position: relative;
+      margin: 16px auto;
+      background: radial-gradient(circle, rgba(0, 229, 255, 0.05) 0%, rgba(0, 0, 0, 0) 70%);
+      overflow: hidden;
+      box-shadow: 0 0 24px rgba(0, 229, 255, 0.15);
+    }
+
+    .radar-grid {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background-image:
+        radial-gradient(circle, transparent 30%, rgba(0, 229, 255, 0.1) 31%, transparent 32%, transparent 60%, rgba(0, 229, 255, 0.1) 61%, transparent 62%),
+        linear-gradient(to right, transparent 49.5%, rgba(0, 229, 255, 0.15) 50%, transparent 50.5%),
+        linear-gradient(to bottom, transparent 49.5%, rgba(0, 229, 255, 0.15) 50%, transparent 50.5%);
+    }
+
+    .radar-sweep {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 150px;
+      height: 150px;
+      background: conic-gradient(from 0deg, rgba(0, 229, 255, 0.3) 0deg, transparent 90deg);
+      transform-origin: 0 0;
+      transform: translate(-50%, -50%) rotate(0deg);
+      animation: radarSweep 3s linear infinite;
+      pointer-events: none;
+      border-radius: 50%;
+    }
+
+    @keyframes radarSweep {
+      to {
+        transform: translate(-50%, -50%) rotate(360deg);
+      }
+    }
+
+    .radar-target {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border: 2px dashed #00FF87;
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 12px rgba(0, 255, 135, 0.4);
+      pointer-events: none;
+    }
+
+    .radar-indicator {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      background: white;
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 16px white;
+      transition: transform 0.08s linear;
+    }
+
+    .radar-hud-info {
+      text-align: center;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: #00E5FF;
+      margin-top: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    /* Reactor stabilization sweep (Precision timing game) */
+    .reactor-container {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      border: 4px solid rgba(255, 255, 255, 0.06);
+      position: relative;
+      margin: 20px auto;
+      background: rgba(0, 0, 0, 0.3);
+      box-shadow: 0 0 30px rgba(120, 50, 255, 0.1);
+    }
+
+    .reactor-target-sector {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(from 144deg, transparent 0deg, rgba(0, 255, 135, 0.25) 0deg, rgba(0, 255, 135, 0.25) 72deg, transparent 72deg);
+      border: 4px solid transparent;
+      pointer-events: none;
+    }
+
+    .reactor-target-line {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 4px;
+      height: 50%;
+      background: #00FF87;
+      transform-origin: 50% 100%;
+      transform: translateX(-50%) rotate(180deg);
+      box-shadow: 0 0 10px #00FF87;
+    }
+
+    .reactor-needle {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 4px;
+      height: 50%;
+      background: #FF2E93;
+      transform-origin: 50% 100%;
+      transform: translateX(-50%) rotate(0deg);
+      box-shadow: 0 0 12px #FF2E93;
+      z-index: 10;
+    }
+
+    .reactor-center {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      background: #150c26;
+      border: 3px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 20;
+    }
+
+    /* Obstacles general */
+    .obstacle-visual {
+      height: 90px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+      margin-bottom: 10px;
+      filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.15));
+    }
+
+    .obstacle-visual.bob {
+      animation: bob 2s ease-in-out infinite;
+    }
+
+    @keyframes bob {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-8px);
+      }
+    }
+
+    .balance-meter {
+      height: 18px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 9px;
+      position: relative;
+      margin: 20px 0 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .balance-zone {
+      position: absolute;
+      left: 38%;
+      width: 24%;
+      height: 100%;
+      background: rgba(0, 255, 135, 0.25);
+      border-left: 2px solid #00FF87;
+      border-right: 2px solid #00FF87;
+    }
+
+    .balance-indicator {
+      position: absolute;
+      top: -3px;
+      width: 8px;
+      height: 24px;
+      background: white;
+      border-radius: 4px;
+      transition: left 0.08s linear;
+      box-shadow: 0 0 16px white;
+      transform: translateX(-50%);
+    }
+
+    .balance-controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .balance-controls .btn {
+      flex: 1;
+      margin-top: 0;
+    }
+
+    /* Gyro tilt visual */
+    .shuttle-tilt-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 90px;
+      perspective: 300px;
+      margin-bottom: 4px;
+    }
+
+    .shuttle-tilt-icon {
+      font-size: 56px;
+      display: inline-block;
+      transition: transform 0.12s linear;
+      transform-style: preserve-3d;
+      filter: drop-shadow(0 0 16px rgba(255, 107, 53, 0.5));
+    }
+
+    .gyro-hint {
+      text-align: center;
+      font-size: 12.5px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-bottom: 8px;
+      letter-spacing: 0.3px;
+    }
+
+    .gyro-badge {
+      display: inline-block;
+      background: rgba(0, 255, 135, 0.15);
+      border: 1px solid rgba(0, 255, 135, 0.4);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11.5px;
+      color: #00FF87;
+      font-weight: 700;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+      text-shadow: 0 0 6px rgba(0, 255, 135, 0.4);
+    }
+
+    .timer-display {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 54px;
+      font-weight: 700;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      color: #FFB627;
+      margin: 12px 0;
+      text-shadow: 0 0 24px rgba(255, 182, 39, 0.45);
+    }
+
+    .canisters {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin: 18px 0;
+    }
+
+    .canister {
+      width: 48px;
+      height: 64px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      filter: grayscale(0.8);
+    }
+
+    .canister.full {
+      background: linear-gradient(180deg, rgba(255, 46, 147, 0.25), rgba(120, 50, 255, 0.45));
+      border-color: #FF2E93;
+      filter: none;
+      box-shadow: 0 0 20px rgba(255, 46, 147, 0.5);
+      transform: scale(1.08);
+    }
+
+    .center-text {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 13.5px;
+      margin-bottom: 14px;
+    }
+
+    .center-text b {
+      color: #FFB627;
+    }
+
+    /* Rewards */
+    .reward-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .reward-item {
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 16px;
+      padding: 16px 8px;
+      text-align: center;
+      border: 1px solid rgba(255, 182, 39, 0.3);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      animation: rewardPop 0.5s cubic-bezier(.18, 1.85, .7, 1.4) forwards;
+    }
+
+    .reward-item:nth-child(2) {
+      animation-delay: 0.12s;
+      animation-fill-mode: backwards;
+    }
+
+    .reward-item:nth-child(3) {
+      animation-delay: 0.24s;
+      animation-fill-mode: backwards;
+    }
+
+    @keyframes rewardPop {
+      from {
+        opacity: 0;
+        transform: scale(0.4) translateY(24px);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .reward-icon {
+      font-size: 36px;
+      filter: drop-shadow(0 0 10px rgba(255, 182, 39, 0.25));
+    }
+
+    .reward-amount {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: #FFB627;
+      margin-top: 6px;
+    }
+
+    .reward-name {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.55);
+      margin-top: 3px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Toast */
+    #toast-wrap {
+      position: fixed;
+      bottom: 200px;
+      left: 0;
+      right: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      z-index: 2000;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: rgba(14, 8, 28, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 12px 22px;
+      border-radius: 100px;
+      font-size: 13.5px;
+      font-weight: 600;
+      animation: toastIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), toastOut 0.3s 2s forwards;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5), 0 0 15px rgba(120, 50, 255, 0.15);
+    }
+
+    @keyframes toastIn {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes toastOut {
+      to {
+        opacity: 0;
+        transform: translateY(-24px);
+      }
+    }
+
+    .intro-banner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(14, 8, 28, 0.92);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 107, 53, 0.45);
+      border-radius: 24px;
+      padding: 24px 28px;
+      text-align: center;
+      max-width: 380px;
+      width: 90%;
+      z-index: 20;
+      box-shadow: 0 15px 45px rgba(0, 0, 0, 0.8), 0 0 40px rgba(255, 107, 53, 0.15);
+    }
+
+    .intro-banner h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 24px;
+      margin-bottom: 10px;
+      color: #FFB627;
+      letter-spacing: 0.5px;
+    }
+
+    .intro-banner p {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, 0.78);
+      margin-bottom: 16px;
+    }
+
+    .intro-banner .btn {
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .loading-screen {
+      position: fixed;
+      inset: 0;
+      background: #06020c;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      color: #FF6B35;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 3px;
+    }
+
+    .loading-spin {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255, 107, 53, 0.15);
+      border-top-color: #FF6B35;
+      border-radius: 50%;
+      animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      margin-bottom: 18px;
+      box-shadow: 0 0 15px rgba(255, 107, 53, 0.25);
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* CSS Spark particles */
+    .spark-particle {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 2000;
+      box-shadow: 0 0 10px currentColor;
+      animation: sparkMove 0.6s cubic-bezier(0.1, 0.8, 0.25, 1) forwards;
+    }
+
+    @keyframes sparkMove {
+      0% {
+        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+        opacity: 1;
+      }
+
+      100% {
+        transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.1) rotate(var(--rot));
+        opacity: 0;
+      }
+    }
+
+    @keyframes shake {
+
+      0%,
+      100% {
+        transform: translateX(0);
+      }
+
+      20% {
+        transform: translateX(-6px) rotate(-0.5deg);
+      }
+
+      40% {
+        transform: translateX(5px) rotate(0.5deg);
+      }
+
+      60% {
+        transform: translateX(-4px) rotate(-0.3deg);
+      }
+
+      80% {
+        transform: translateX(3px) rotate(0.3deg);
+      }
+    }
+
+    /* Screen EMP electro-magnetic flash overlay */
+    .shield-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(circle, rgba(120, 50, 255, 0) 40%, rgba(120, 50, 255, 0.15) 100%);
+      border: 0px solid rgba(120, 50, 255, 0);
+      transition: border-width 0.1s, border-color 0.1s;
+      z-index: 5;
+      mix-blend-mode: screen;
+    }
+
+    .shield-overlay.hit {
+      border: 12px solid rgba(180, 80, 255, 0.4);
+      background: radial-gradient(circle, rgba(120, 50, 255, 0.1) 20%, rgba(120, 50, 255, 0.45) 100%);
+    }
+
+    .inventory-card,
+    .hud-card,
+    .launch-btn,
+    .btn {
+      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.15s, background 0.15s, box-shadow 0.15s !important;
+    }
+
+    .btn:active,
+    .launch-btn:active {
+      transform: scale(0.92) !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="loading" class="loading-screen">
+    <div class="loading-spin"></div>
+    <div>ИНИЦИАЛИЗАЦИЯ КОЛОНИИ...</div>
+  </div>
+
+  <div id="canvas-container"></div>
+  <div class="shield-overlay" id="shieldOverlay"></div>
+
+  <div class="ui-overlay">
+    <div class="hud-top">
+      <div class="hud-card">
+        <div class="colony-name">⛰ Колония</div>
+        <div class="colony-title">Аресия-IV</div>
+        <div class="dome-progress" id="domeText">🏛 Купол «Гелиос»: 3/10</div>
+        <div class="dome-bar">
+          <div class="dome-fill" id="domeFill" style="width:30%"></div>
+        </div>
+      </div>
+      <div class="hud-card credits-card">💎 <span id="credits">500</span></div>
+    </div>
+
+    <div class="bays-status" id="baysStatus"></div>
+
+    <div id="hint" class="hint" style="display:none;"></div>
+    <div id="statusBar" style="display:none;"></div>
+
+    <button class="launch-btn" id="launchBtn" onclick="window._doLaunch()">🚀 Запустить шаттл</button>
+  </div>
+
+  <div class="modal-bg" id="modalBg" style="display:none;">
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <div id="toast-wrap"></div>
+
+  <div class="intro-banner" id="intro">
+    <h2>🪐 Шаттл «Арес-7»</h2>
+    <p>3 ящика с ресурсами на марсианской поверхности. Нажми на каждый чтобы загрузить. Затем преодолей 3 препятствия и
+      запусти шаттл на станцию «Гермес».</p>
+    <p style="font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:14px;">Перетащи пальцем/мышью для вращения
+      камеры</p>
+    <button class="btn btn-primary" onclick="startGame()">Начать</button>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // ============ GAME DATA ============
+    const RESOURCES = {
+      crystals: { icon: '💎', name: 'Кристаллы', price: 60, color: 0xcc33ff },
+      helium3: { icon: '🧪', name: 'Гелий-3', price: 90, color: 0x66ccee },
+      phyto: { icon: '🌱', name: 'Фитоконцентрат', price: 70, color: 0x4a9a3a },
+      deuterium: { icon: '💧', name: 'Дейтерий', price: 50, color: 0xddddff },
+      supercond: { icon: '🧲', name: 'Проводники', price: 80, color: 0x888899 }
+    };
+
+    const REWARD_POOL = [
+      { id: 'components', icon: '🔧', name: 'Компоненты' },
+      { id: 'armor', icon: '🛡️', name: 'Броня' },
+      { id: 'meds', icon: '💊', name: 'Медикаменты' },
+      { id: 'battery', icon: '🔋', name: 'Батареи' },
+      { id: 'panels', icon: '☀️', name: 'Панели' }
+    ];
+
+    // ============ SHOWCASE AUDIO SYNTHESIZER ============
+    const Sound = {
+      ctx: null,
+      ambience: null,
+      rumble: null,
+      init() {
+        if (this.ctx) return;
+        try {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+          console.warn("Web Audio Context not supported", e);
+        }
+      },
+      playTap() {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(380, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.1);
+
+        gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.1);
+      },
+      playStatic() {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+
+        const bufferSize = this.ctx.sampleRate * 0.05; // 50ms
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(2000 + Math.random() * 2000, this.ctx.currentTime);
+        filter.Q.setValueAtTime(8, this.ctx.currentTime);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        noise.start();
+      },
+      playSuccess() {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const notes = [293.66, 349.23, 440.00, 587.33, 698.46, 880.00]; // D4, F4, A4, D5, F5, A5 arpeggio
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.06);
+
+          gain.gain.setValueAtTime(0, this.ctx.currentTime + idx * 0.06);
+          gain.gain.linearRampToValueAtTime(0.1, this.ctx.currentTime + idx * 0.06 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.06 + 0.3);
+
+          osc.start(this.ctx.currentTime + idx * 0.06);
+          osc.stop(this.ctx.currentTime + idx * 0.06 + 0.3);
+        });
+      },
+      playCharge() {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.6);
+
+        gain.gain.setValueAtTime(0.01, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.08, this.ctx.currentTime + 0.4);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.6);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.6);
+      },
+      playError() {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(130, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(90, this.ctx.currentTime + 0.22);
+
+        gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.22);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.22);
+      },
+      playCoilSuccess() {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.12);
+
+        gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.12);
+      },
+      playAmbience() {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        if (this.ambience) return;
+
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter();
+        const gain = this.ctx.createGain();
+
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(55, this.ctx.currentTime);
+
+        osc2.type = 'sawtooth';
+        osc2.frequency.setValueAtTime(55.3, this.ctx.currentTime);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(120, this.ctx.currentTime);
+
+        const lfo = this.ctx.createOscillator();
+        const lfoGain = this.ctx.createGain();
+        lfo.type = 'sine';
+        lfo.frequency.setValueAtTime(0.15, this.ctx.currentTime);
+        lfoGain.gain.setValueAtTime(35, this.ctx.currentTime);
+
+        lfo.connect(lfoGain);
+        lfoGain.connect(filter.frequency);
+
+        gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+
+        osc1.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc1.start();
+        osc2.start();
+        lfo.start();
+
+        this.ambience = { osc1, osc2, lfo, gain };
+      },
+      stopAmbience() {
+        if (!this.ambience) return;
+        try {
+          this.ambience.osc1.stop();
+          this.ambience.osc2.stop();
+          this.ambience.lfo.stop();
+        } catch (e) { }
+        this.ambience = null;
+      },
+      playLaunchRumble() {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        if (this.rumble) return;
+
+        const bufferSize = this.ctx.sampleRate * 2.5;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+        noise.loop = true;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(80, this.ctx.currentTime);
+
+        filter.frequency.linearRampToValueAtTime(380, this.ctx.currentTime + 0.5);
+        filter.frequency.linearRampToValueAtTime(450, this.ctx.currentTime + 1.5);
+        filter.frequency.exponentialRampToValueAtTime(70, this.ctx.currentTime + 4.0);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.001, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.28, this.ctx.currentTime + 0.5);
+        gain.gain.linearRampToValueAtTime(0.18, this.ctx.currentTime + 2.0);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 4.0);
+
+        const subOsc = this.ctx.createOscillator();
+        subOsc.type = 'sine';
+        subOsc.frequency.setValueAtTime(38, this.ctx.currentTime);
+        subOsc.frequency.linearRampToValueAtTime(48, this.ctx.currentTime + 2.0);
+
+        const subGain = this.ctx.createGain();
+        subGain.gain.setValueAtTime(0.001, this.ctx.currentTime);
+        subGain.gain.linearRampToValueAtTime(0.35, this.ctx.currentTime + 0.5);
+        subGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 4.0);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        subOsc.connect(subGain);
+        subGain.connect(this.ctx.destination);
+
+        noise.start();
+        subOsc.start();
+
+        this.rumble = { noise, subOsc, gain, subGain };
+
+        setTimeout(() => {
+          this.stopLaunchRumble();
+        }, 4500);
+      },
+      stopLaunchRumble() {
+        if (!this.rumble) return;
+        try {
+          this.rumble.noise.stop();
+          this.rumble.subOsc.stop();
+        } catch (e) { }
+        this.rumble = null;
+      }
+    }; w
+
+    // Global click/tap hook for satisfying feedback
+    document.addEventListener('pointerdown', (e) => {
+      const target = e.target;
+      if (!target) return;
+
+      if (target.closest('.btn') || target.closest('.resource-card') || target.closest('.inventory-item') || target.closest('.launch-btn') || target.closest('.canister')) {
+        if (target.closest('#stormTornado') || target.closest('.storm-tapper')) {
+          Sound.playStatic();
+        } else {
+          Sound.playTap();
+        }
+      }
+    });
+
+    let state = {};
+
+    function initState(firstRun = true) {
+      state = {
+        phase: 'loading',
+        credits: firstRun ? 500 : state.credits,
+        buildProgress: firstRun ? 3 : state.buildProgress,
+        buildTarget: 10,
+        inventory: firstRun
+          ? { crystals: 4, helium3: 0, phyto: 5, deuterium: 1, supercond: 2 }
+          : state.inventory,
+        cargoBays: generateBays(firstRun),
+        fuel: 1,
+        fuelNeeded: 3,
+        stormSeconds: 10 + Math.floor(Math.random() * 6),
+        flightSeconds: 8
+      };
+    }
+
+    function generateBays(firstRun) {
+      if (firstRun) {
+        return [
+          { resource: 'crystals', amount: 2, loaded: false },
+          { resource: 'helium3', amount: 1, loaded: false },
+          { resource: 'phyto', amount: 3, loaded: false }
+        ];
+      }
+      const keys = Object.keys(RESOURCES);
+      const shuffled = [...keys].sort(() => Math.random() - 0.5).slice(0, 3);
+      return shuffled.map(r => ({
+        resource: r,
+        amount: Math.ceil(Math.random() * 2) + 1,
+        loaded: false
+      }));
+    }
+
+    // ============ 3D SCENE ============
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0612);
+    scene.fog = new THREE.Fog(0x3a1408, 22, 70);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // Lighting
+    scene.add(new THREE.AmbientLight(0x553344, 0.5));
+
+    const sun = new THREE.DirectionalLight(0xffccaa, 1.3);
+    sun.position.set(8, 15, 6);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -15;
+    sun.shadow.camera.right = 15;
+    sun.shadow.camera.top = 15;
+    sun.shadow.camera.bottom = -15;
+    scene.add(sun);
+
+    const fillLight = new THREE.DirectionalLight(0xff5533, 0.4);
+    fillLight.position.set(-6, 3, -4);
+    scene.add(fillLight);
+
+    scene.add(new THREE.HemisphereLight(0xff8866, 0x331122, 0.3));
+
+    // Mars sky gradient
+    const skyGeo = new THREE.SphereGeometry(80, 32, 16);
+    const skyMat = new THREE.ShaderMaterial({
+      uniforms: {
+        topColor: { value: new THREE.Color(0x0a0612) },
+        midColor: { value: new THREE.Color(0x3a1830) },
+        bottomColor: { value: new THREE.Color(0x8a3818) }
+      },
+      vertexShader: `
+    varying vec3 vWorldPosition;
+    void main() {
+      vec4 worldPos = modelMatrix * vec4(position, 1.0);
+      vWorldPosition = worldPos.xyz;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+      fragmentShader: `
+    uniform vec3 topColor;
+    uniform vec3 midColor;
+    uniform vec3 bottomColor;
+    varying vec3 vWorldPosition;
+    void main() {
+      float h = normalize(vWorldPosition).y;
+      vec3 col;
+      if (h > 0.0) {
+        col = mix(midColor, topColor, pow(h, 0.5));
+      } else {
+        col = mix(midColor, bottomColor, pow(-h, 0.7));
+      }
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `,
+      side: THREE.BackSide
+    });
+    scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+    // Stars
+    const starGeo = new THREE.BufferGeometry();
+    const starCount = 1200;
+    const starPos = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      const r = 60;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(Math.random() * 0.9 + 0.05);
+      starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      starPos[i * 3 + 1] = r * Math.cos(phi);
+      starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
+      color: 0xffffff, size: 0.15, transparent: true, opacity: 0.85
+    }));
+    scene.add(stars);
+
+    // Mars ground (with noise)
+    const groundGeo = new THREE.PlaneGeometry(120, 120, 50, 50);
+    const positions = groundGeo.attributes.position.array;
+    for (let i = 0; i < positions.length; i += 3) {
+      const x = positions[i];
+      const y = positions[i + 1];
+      const dist = Math.sqrt(x * x + y * y);
+      // Keep launch pad area flat, add noise outside
+      const noise = (Math.random() - 0.5) * 0.6 + Math.sin(x * 0.3) * Math.cos(y * 0.3) * 0.4;
+      positions[i + 2] = dist > 5 ? noise : 0;
+    }
+    groundGeo.computeVertexNormals();
+    const ground = new THREE.Mesh(groundGeo, new THREE.MeshStandardMaterial({
+      color: 0xb24628, roughness: 0.95, metalness: 0.05, flatShading: true
+    }));
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // Distant hills
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2 + Math.random() * 0.3;
+      const dist = 28 + Math.random() * 15;
+      const scale = 3 + Math.random() * 5;
+      const hillGeo = new THREE.SphereGeometry(scale, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+      const hill = new THREE.Mesh(hillGeo, new THREE.MeshStandardMaterial({
+        color: 0x6a2a14, roughness: 1, flatShading: true
+      }));
+      hill.position.set(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+      hill.scale.y = 0.4 + Math.random() * 0.3;
+      scene.add(hill);
+    }
+
+    // Rocks
+    for (let i = 0; i < 22; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 6 + Math.random() * 14;
+      const scale = 0.18 + Math.random() * 0.5;
+      const rockGeo = new THREE.DodecahedronGeometry(scale, 0);
+      const rock = new THREE.Mesh(rockGeo, new THREE.MeshStandardMaterial({
+        color: 0x5a2410, roughness: 1, flatShading: true
+      }));
+      rock.position.set(Math.cos(angle) * dist, scale * 0.4, Math.sin(angle) * dist);
+      rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      rock.castShadow = true;
+      rock.receiveShadow = true;
+      scene.add(rock);
+    }
+
+    // Helios dome (in distance, under construction)
+    const domeGroup = new THREE.Group();
+    const domeGeo = new THREE.SphereGeometry(2.8, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+    const domeMat = new THREE.MeshPhysicalMaterial({
+      color: 0x88ddff,
+      transparent: true,
+      opacity: 0.25,
+      roughness: 0.1,
+      metalness: 0.3,
+      side: THREE.DoubleSide,
+      transmission: 0.6,
+      clearcoat: 1
+    });
+    domeGroup.add(new THREE.Mesh(domeGeo, domeMat));
+
+    const frameGeo = new THREE.SphereGeometry(2.83, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+    domeGroup.add(new THREE.Mesh(frameGeo, new THREE.MeshBasicMaterial({
+      color: 0xffaa44, wireframe: true, transparent: true, opacity: 0.6
+    })));
+
+    // Dome base
+    const baseGeo = new THREE.CylinderGeometry(2.9, 3.1, 0.3, 24);
+    domeGroup.add(new THREE.Mesh(baseGeo, new THREE.MeshStandardMaterial({
+      color: 0x444444, metalness: 0.6, roughness: 0.4
+    })));
+    domeGroup.position.set(-9, 0, -4);
+    domeGroup.rotation.y = 0.3;
+    scene.add(domeGroup);
+
+    // Buildings nearby (small habitats)
+    function addHabitat(x, z) {
+      const habGroup = new THREE.Group();
+      const habGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.6, 12);
+      habGroup.add(new THREE.Mesh(habGeo, new THREE.MeshStandardMaterial({
+        color: 0xddd5cc, metalness: 0.4, roughness: 0.5
+      })));
+      const topGeo = new THREE.SphereGeometry(0.5, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+      const top = new THREE.Mesh(topGeo, new THREE.MeshStandardMaterial({
+        color: 0x6688aa, metalness: 0.5, roughness: 0.3
+      }));
+      top.position.y = 0.3;
+      habGroup.add(top);
+      habGroup.position.set(x, 0.3, z);
+      habGroup.castShadow = true;
+      scene.add(habGroup);
+    }
+    addHabitat(-6, -1);
+    addHabitat(-7.5, 0.5);
+    addHabitat(-5, 2.5);
+
+    // Launch pad
+    const padGeo = new THREE.CylinderGeometry(2.8, 3.2, 0.4, 24);
+    const pad = new THREE.Mesh(padGeo, new THREE.MeshStandardMaterial({
+      color: 0x3a3a3a, metalness: 0.5, roughness: 0.5
+    }));
+    pad.position.y = 0.2;
+    pad.receiveShadow = true;
+    scene.add(pad);
+
+    // Pad markings (rings)
+    const ringGeo = new THREE.RingGeometry(2.3, 2.5, 32);
+    const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
+      color: 0xffaa00, side: THREE.DoubleSide
+    }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.41;
+    scene.add(ring);
+
+    const ring2 = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.65, 32), new THREE.MeshBasicMaterial({
+      color: 0xffaa00, side: THREE.DoubleSide
+    }));
+    ring2.rotation.x = -Math.PI / 2;
+    ring2.position.y = 0.41;
+    scene.add(ring2);
+
+    // Launch tower
+    const towerGroup = new THREE.Group();
+    const towerMat = new THREE.MeshStandardMaterial({ color: 0x777777, metalness: 0.6, roughness: 0.4 });
+    const towerLegGeo = new THREE.BoxGeometry(0.15, 5.5, 0.15);
+    [[-2.4, 0.5], [2.4, 0.5], [-2.4, -0.5], [2.4, -0.5]].forEach(([x, z]) => {
+      if (Math.abs(x) > 2 && Math.abs(z) < 1) {
+        const leg = new THREE.Mesh(towerLegGeo, towerMat);
+        leg.position.set(x, 2.95, z);
+        leg.castShadow = true;
+        towerGroup.add(leg);
+      }
+    });
+    // Cross beams
+    for (let h = 1; h <= 5; h++) {
+      for (const x of [-2.4, 2.4]) {
+        const beam = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 1.1), towerMat);
+        beam.position.set(x, h, 0);
+        towerGroup.add(beam);
+      }
+    }
+    scene.add(towerGroup);
+
+    // Rotating Radar dish on top of the left tower leg
+    const radarGroup = new THREE.Group();
+    radarGroup.position.set(-2.4, 5.8, 0);
+    const radarSupport = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.4), towerMat);
+    radarSupport.position.y = 0.2;
+    radarGroup.add(radarSupport);
+
+    const dishGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.12, 16, 1, true);
+    const dishMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.8, roughness: 0.3, side: THREE.DoubleSide });
+    const dish = new THREE.Mesh(dishGeo, dishMat);
+    dish.rotation.x = Math.PI / 2;
+    dish.position.y = 0.45;
+    radarGroup.add(dish);
+
+    const dishCenter = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.3), towerMat);
+    dishCenter.position.set(0, 0.45, 0.12);
+    dishCenter.rotation.x = Math.PI / 2;
+    radarGroup.add(dishCenter);
+    scene.add(radarGroup);
+
+    // ============ CAMERA SHAKE SYSTEM ============
+    const CameraShake = {
+      intensity: 0,
+      decay: 0.92,
+      offset: new THREE.Vector3(),
+      shake(amount) {
+        this.intensity = Math.min(1.5, this.intensity + amount);
+      },
+      update(dt) {
+        if (this.intensity > 0.01) {
+          this.offset.set(
+            (Math.random() - 0.5) * this.intensity * 0.4,
+            (Math.random() - 0.5) * this.intensity * 0.4,
+            (Math.random() - 0.5) * this.intensity * 0.4
+          );
+          this.intensity *= this.decay;
+        } else {
+          this.offset.set(0, 0, 0);
+          this.intensity = 0;
+        }
+      }
+    };
+
+    // ============ ROCKET ============
+    const rocketGroup = new THREE.Group();
+
+    // Lower body (wider)
+    const lowerBodyGeo = new THREE.CylinderGeometry(0.65, 0.75, 1.6, 24);
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: 0xede8de, metalness: 0.4, roughness: 0.35
+    });
+    const lowerBody = new THREE.Mesh(lowerBodyGeo, bodyMat);
+    lowerBody.position.y = 1.2;
+    lowerBody.castShadow = true;
+    rocketGroup.add(lowerBody);
+
+    // Upper body
+    const upperBodyGeo = new THREE.CylinderGeometry(0.55, 0.65, 2.2, 24);
+    const upperBody = new THREE.Mesh(upperBodyGeo, bodyMat);
+    upperBody.position.y = 3.1;
+    upperBody.castShadow = true;
+    rocketGroup.add(upperBody);
+
+    // Nose cone
+    const noseGeo = new THREE.ConeGeometry(0.55, 1.3, 24);
+    const accentMat = new THREE.MeshStandardMaterial({
+      color: 0xe94b3c, metalness: 0.5, roughness: 0.3
+    });
+    const nose = new THREE.Mesh(noseGeo, accentMat);
+    nose.position.y = 4.85;
+    nose.castShadow = true;
+    rocketGroup.add(nose);
+
+    // Stripes
+    const stripeGeo = new THREE.CylinderGeometry(0.66, 0.66, 0.2, 24);
+    const stripe1 = new THREE.Mesh(stripeGeo, accentMat);
+    stripe1.position.y = 2.05;
+    rocketGroup.add(stripe1);
+
+    const stripe2 = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.56, 0.56, 0.15, 24),
+      new THREE.MeshStandardMaterial({ color: 0xffb627, metalness: 0.5 })
+    );
+    stripe2.position.y = 3.9;
+    rocketGroup.add(stripe2);
+
+    // Window
+    const windowGeo = new THREE.SphereGeometry(0.18, 16, 12);
+    const windowMat = new THREE.MeshStandardMaterial({
+      color: 0x4488cc, emissive: 0x1a3a5a,
+      metalness: 0.9, roughness: 0.1
+    });
+    const win = new THREE.Mesh(windowGeo, windowMat);
+    win.position.set(0, 3.5, 0.5);
+    rocketGroup.add(win);
+    const winRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.2, 0.04, 8, 16),
+      new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.7 })
+    );
+    winRing.position.set(0, 3.5, 0.55);
+    rocketGroup.add(winRing);
+
+    // Bay panels on rocket (3 indicators)
+    const bayPanels = [];
+    for (let i = 0; i < 3; i++) {
+      const panelGeo = new THREE.BoxGeometry(0.5, 0.4, 0.05);
+      const panelMat = new THREE.MeshStandardMaterial({
+        color: 0x333333, metalness: 0.4, roughness: 0.6,
+        emissive: 0x000000
+      });
+      const panel = new THREE.Mesh(panelGeo, panelMat);
+      const angle = -Math.PI / 2 + (i - 1) * 0.7;
+      panel.position.set(Math.cos(angle) * 0.68, 1.5, Math.sin(angle) * 0.68);
+      panel.lookAt(panel.position.x * 2, 1.5, panel.position.z * 2);
+      rocketGroup.add(panel);
+      bayPanels.push(panel);
+    }
+
+    // Fins
+    const finShape = new THREE.Shape();
+    finShape.moveTo(0, 0);
+    finShape.lineTo(0.5, 0);
+    finShape.lineTo(0.7, -0.6);
+    finShape.lineTo(0, -0.6);
+    finShape.lineTo(0, 0);
+
+    for (let i = 0; i < 3; i++) {
+      const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.06, bevelEnabled: false });
+      const fin = new THREE.Mesh(finGeo, accentMat);
+      fin.position.y = 0.6;
+      const angle = (i / 3) * Math.PI * 2;
+      fin.position.x = Math.cos(angle) * 0.7;
+      fin.position.z = Math.sin(angle) * 0.7;
+      fin.rotation.y = -angle - Math.PI / 2;
+      fin.castShadow = true;
+      rocketGroup.add(fin);
+    }
+
+    // Engine nozzle
+    const nozzleGeo = new THREE.CylinderGeometry(0.42, 0.55, 0.5, 16);
+    const nozzle = new THREE.Mesh(nozzleGeo, new THREE.MeshStandardMaterial({
+      color: 0x1a1a1a, metalness: 0.85, roughness: 0.3
+    }));
+    nozzle.position.y = 0.25;
+    nozzle.castShadow = true;
+    rocketGroup.add(nozzle);
+
+    // Flame
+    const flameGeo = new THREE.ConeGeometry(0.5, 2.5, 16);
+    const flameMat = new THREE.MeshBasicMaterial({
+      color: 0xff6b35, transparent: true, opacity: 0
+    });
+    const flame = new THREE.Mesh(flameGeo, flameMat);
+    flame.position.y = -1.2;
+    flame.rotation.x = Math.PI;
+    rocketGroup.add(flame);
+
+    const innerFlame = new THREE.Mesh(
+      new THREE.ConeGeometry(0.25, 1.8, 12),
+      new THREE.MeshBasicMaterial({ color: 0xffee88, transparent: true, opacity: 0 })
+    );
+    innerFlame.position.y = -0.9;
+    innerFlame.rotation.x = Math.PI;
+    rocketGroup.add(innerFlame);
+
+    // Engine light (when launching)
+    const engineLight = new THREE.PointLight(0xff6b35, 0, 8);
+    engineLight.position.set(0, -1, 0);
+    rocketGroup.add(engineLight);
+
+    rocketGroup.position.y = 0.4;
+    scene.add(rocketGroup);
+
+    // Smoke particles (for launch)
+    const smokeGroup = new THREE.Group();
+    scene.add(smokeGroup);
+
+    function spawnSmoke() {
+      const geo = new THREE.SphereGeometry(0.3 + Math.random() * 0.4, 6, 4);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xddccbb, transparent: true, opacity: 0.5
+      });
+      const m = new THREE.Mesh(geo, mat);
+      const baseX = rocketGroup.position.x + (Math.random() - 0.5) * 2.5;
+      const baseZ = rocketGroup.position.z + (Math.random() - 0.5) * 2.5;
+      m.position.set(baseX, 0.4, baseZ);
+      m.userData = {
+        vx: (Math.random() - 0.5) * 0.03,
+        vy: 0.02 + Math.random() * 0.04,
+        vz: (Math.random() - 0.5) * 0.03,
+        life: 1.0
+      };
+      smokeGroup.add(m);
+    }
+
+    function updateSmoke() {
+      for (let i = smokeGroup.children.length - 1; i >= 0; i--) {
+        const m = smokeGroup.children[i];
+        m.position.x += m.userData.vx;
+        m.position.y += m.userData.vy;
+        m.position.z += m.userData.vz;
+        m.userData.life -= 0.015;
+        m.material.opacity = m.userData.life * 0.5;
+        m.scale.setScalar(1 + (1 - m.userData.life) * 1.5);
+        if (m.userData.life <= 0) smokeGroup.remove(m);
+      }
+    }
+
+    // ============ DYNAMIC 3D THRUSTER & CARGO LOAD PARTICLES ============
+    const thrusterParticles = new THREE.Group();
+    scene.add(thrusterParticles);
+
+    const loadParticles = new THREE.Group();
+    scene.add(loadParticles);
+
+    const stormArcs = new THREE.Group();
+    scene.add(stormArcs);
+
+    function spawnThrusterParticles() {
+      const colors = [0xffdd44, 0xff6b35, 0xff1100, 0x444444];
+      for (let i = 0; i < 4; i++) {
+        const size = 0.15 + Math.random() * 0.25;
+        const geo = new THREE.SphereGeometry(size, 4, 4);
+        const col = colors[Math.floor(Math.random() * colors.length)];
+        const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85 });
+        const p = new THREE.Mesh(geo, mat);
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.random() * 0.35;
+        p.position.set(
+          rocketGroup.position.x + Math.cos(angle) * dist,
+          rocketGroup.position.y + 0.15,
+          rocketGroup.position.z + Math.sin(angle) * dist
+        );
+        p.userData = {
+          vx: (Math.random() - 0.5) * 0.04,
+          vy: -0.15 - Math.random() * 0.12,
+          vz: (Math.random() - 0.5) * 0.04,
+          life: 1.0,
+          decay: 0.04 + Math.random() * 0.04
+        };
+        thrusterParticles.add(p);
+      }
+    }
+
+    function updateThrusterParticles() {
+      for (let i = thrusterParticles.children.length - 1; i >= 0; i--) {
+        const p = thrusterParticles.children[i];
+        p.position.x += p.userData.vx;
+        p.position.y += p.userData.vy;
+        p.position.z += p.userData.vz;
+        p.userData.life -= p.userData.decay;
+        p.material.opacity = p.userData.life * 0.8;
+        p.scale.setScalar(p.userData.life);
+        if (p.userData.life <= 0) {
+          thrusterParticles.remove(p);
+        }
+      }
+    }
+
+    function spawnLoadParticles(pos, colorHex = 0x00ff87) {
+      const pCount = 18;
+      for (let i = 0; i < pCount; i++) {
+        const size = 0.06 + Math.random() * 0.08;
+        const geo = new THREE.BoxGeometry(size, size, size);
+        const mat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.95 });
+        const p = new THREE.Mesh(geo, mat);
+        p.position.copy(pos);
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.03 + Math.random() * 0.06;
+        p.userData = {
+          vx: Math.cos(angle) * speed,
+          vy: 0.03 + Math.random() * 0.05,
+          vz: Math.sin(angle) * speed,
+          life: 1.0,
+          decay: 0.02 + Math.random() * 0.02
+        };
+        loadParticles.add(p);
+      }
+    }
+
+    function updateLoadParticles() {
+      for (let i = loadParticles.children.length - 1; i >= 0; i--) {
+        const p = loadParticles.children[i];
+        p.position.x += p.userData.vx;
+        p.position.y += p.userData.vy;
+        p.position.z += p.userData.vz;
+        p.userData.life -= p.userData.decay;
+        p.material.opacity = p.userData.life;
+        p.scale.setScalar(p.userData.life * 1.2);
+        if (p.userData.life <= 0) {
+          loadParticles.remove(p);
+        }
+      }
+    }
+
+    function spawnStormArc() {
+      const start = new THREE.Vector3(
+        (Math.random() - 0.5) * 4,
+        1 + Math.random() * 3,
+        (Math.random() - 0.5) * 4
+      );
+      const end = new THREE.Vector3(
+        rocketGroup.position.x + (Math.random() - 0.5) * 0.5,
+        rocketGroup.position.y + 1 + Math.random() * 2,
+        rocketGroup.position.z + (Math.random() - 0.5) * 0.5
+      );
+
+      const points = [];
+      const segments = 5;
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const pt = new THREE.Vector3().lerpVectors(start, end, t);
+        if (i > 0 && i < segments) {
+          pt.x += (Math.random() - 0.5) * 0.25;
+          pt.y += (Math.random() - 0.5) * 0.25;
+          pt.z += (Math.random() - 0.5) * 0.25;
+        }
+        points.push(pt);
+      }
+
+      const geo = new THREE.BufferGeometry().setFromPoints(points);
+      const mat = new THREE.LineBasicMaterial({ color: 0xa858ff, transparent: true, opacity: 0.95 });
+      const line = new THREE.Line(geo, mat);
+      line.userData = { life: 1.0, decay: 0.15 + Math.random() * 0.1 };
+      stormArcs.add(line);
+    }
+
+    function updateStormArcs() {
+      for (let i = stormArcs.children.length - 1; i >= 0; i--) {
+        const line = stormArcs.children[i];
+        line.userData.life -= line.userData.decay;
+        line.material.opacity = line.userData.life;
+        if (line.userData.life <= 0) {
+          stormArcs.remove(line);
+        }
+      }
+    }
+
+    // ============ CARGO CONTAINERS ============
+    const cargoGroup = new THREE.Group();
+    const cargoMeshes = [];
+
+    function createCargoMeshes() {
+      // Clear existing
+      while (cargoGroup.children.length) cargoGroup.remove(cargoGroup.children[0]);
+      cargoMeshes.length = 0;
+
+      state.cargoBays.forEach((bay, i) => {
+        const res = RESOURCES[bay.resource];
+
+        // Container box with detail
+        const boxGroup = new THREE.Group();
+        const mainGeo = new THREE.BoxGeometry(0.9, 0.7, 0.9);
+        const mainMat = new THREE.MeshStandardMaterial({
+          color: res.color, metalness: 0.5, roughness: 0.5
+        });
+        const main = new THREE.Mesh(mainGeo, mainMat);
+        main.castShadow = true;
+        main.receiveShadow = true;
+        boxGroup.add(main);
+
+        // Trim
+        const trimGeo = new THREE.BoxGeometry(0.95, 0.1, 0.95);
+        const trim = new THREE.Mesh(trimGeo, new THREE.MeshStandardMaterial({
+          color: 0x222222, metalness: 0.8, roughness: 0.3
+        }));
+        trim.position.y = 0.3;
+        boxGroup.add(trim);
+        const trim2 = trim.clone();
+        trim2.position.y = -0.3;
+        boxGroup.add(trim2);
+
+        // Glow indicator on top
+        const indGeo = new THREE.BoxGeometry(0.5, 0.05, 0.5);
+        const indMat = new THREE.MeshBasicMaterial({ color: res.color });
+        const ind = new THREE.Mesh(indGeo, indMat);
+        ind.position.y = 0.38;
+        boxGroup.add(ind);
+
+        // Position (fan out around rocket, in front)
+        const angle = -Math.PI / 2 + (i - 1) * 0.45;
+        const dist = 3.8;
+        boxGroup.position.set(Math.cos(angle) * dist, 0.55, Math.sin(angle) * dist + 0.5);
+        boxGroup.rotation.y = -angle - Math.PI / 2 + 0.2;
+        boxGroup.userData = { index: i, baseY: 0.55 };
+
+        cargoGroup.add(boxGroup);
+        cargoMeshes.push(boxGroup);
+      });
+    }
+
+    scene.add(cargoGroup);
+
+    // ============ CAMERA CONTROL ============
+    let camAngle = -Math.PI / 2 + 0.5;
+    let camHeight = 3.5;
+    let camDist = 11;
+
+    function updateCamera() {
+      CameraShake.update(0.016);
+      camera.position.x = Math.cos(camAngle) * camDist + CameraShake.offset.x;
+      camera.position.z = Math.sin(camAngle) * camDist + CameraShake.offset.z;
+      camera.position.y = camHeight + CameraShake.offset.y;
+      camera.lookAt(0, 2.5 + CameraShake.offset.y * 0.5, 0);
+    }
+
+    let pointerDown = null;
+    let pointerMoved = false;
+    let lastPointer = null;
+
+    function getPointerPos(e) {
+      if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      return { x: e.clientX, y: e.clientY };
+    }
+
+    renderer.domElement.addEventListener('pointerdown', e => {
+      pointerDown = getPointerPos(e);
+      lastPointer = pointerDown;
+      pointerMoved = false;
+    });
+
+    renderer.domElement.addEventListener('pointermove', e => {
+      const p = getPointerPos(e);
+      if (pointerDown && lastPointer) {
+        const totalDx = p.x - pointerDown.x;
+        const totalDy = p.y - pointerDown.y;
+        if (Math.abs(totalDx) > 5 || Math.abs(totalDy) > 5) {
+          pointerMoved = true;
+          const dx = p.x - lastPointer.x;
+          const dy = p.y - lastPointer.y;
+          camAngle -= dx * 0.006;
+          camHeight = Math.max(2, Math.min(8, camHeight + dy * 0.02));
+          updateCamera();
+          lastPointer = p;
+        }
+      }
+    });
+
+    renderer.domElement.addEventListener('pointerup', e => {
+      const p = getPointerPos(e);
+      if (pointerDown && !pointerMoved) {
+        handleTap(p.x, p.y);
+      }
+      pointerDown = null;
+      lastPointer = null;
+    });
+
+    renderer.domElement.addEventListener('pointercancel', () => {
+      pointerDown = null; lastPointer = null;
+    });
+
+    // Raycaster
+    const raycaster = new THREE.Raycaster();
+    const mouseVec = new THREE.Vector2();
+
+    function handleTap(x, y) {
+      if (state.phase !== 'loading') return;
+      mouseVec.x = (x / window.innerWidth) * 2 - 1;
+      mouseVec.y = -(y / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouseVec, camera);
+      const intersects = raycaster.intersectObjects(cargoMeshes.filter(m => m.visible), true);
+      if (intersects.length > 0) {
+        // Find parent group
+        let obj = intersects[0].object;
+        while (obj && obj.userData.index === undefined) obj = obj.parent;
+        if (obj) openBayModal(obj.userData.index);
+      }
+    }
+
+    // ============ ANIMATION LOOP ============
+    let clock = new THREE.Clock();
+    let elapsed = 0;
+    let launchTime = 0;
+    let returnTime = 0;
+    let cameraAuto = true;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+      elapsed += dt;
+
+      // Rotate radar dish
+      if (radarGroup) radarGroup.rotation.y += dt * 0.8;
+
+      // Update particles
+      updateSmoke();
+      updateThrusterParticles();
+      updateLoadParticles();
+      updateStormArcs();
+
+      // Slow auto-rotation when idle
+      if (cameraAuto && state.phase === 'loading') {
+        camAngle += dt * 0.05;
+      }
+
+      // Camera shake & position update every frame
+      updateCamera();
+
+      // Cargo bobbing and rotation
+      cargoMeshes.forEach((m, i) => {
+        if (m.visible) {
+          m.position.y = m.userData.baseY + Math.sin(elapsed * 2 + i * 1.5) * 0.06;
+          m.rotation.y += dt * 0.3;
+        }
+      });
+
+      // Star slow drift
+      stars.rotation.y += dt * 0.005;
+
+      // Flame flicker
+      if (flame.material.opacity > 0.01) {
+        flame.scale.y = 1 + Math.sin(elapsed * 35) * 0.08;
+        flame.scale.x = 1 + Math.sin(elapsed * 40 + 1) * 0.06;
+        flame.scale.z = flame.scale.x;
+        innerFlame.scale.y = 1 + Math.cos(elapsed * 38) * 0.08;
+      }
+
+      // Launch sequence
+      if (state.phase === 'launchAnim') {
+        launchTime += dt;
+        const p = Math.min(launchTime / 4, 1);
+
+        // Build up phase (0-0.5s): flame ignites, light shakes
+        if (launchTime < 0.5) {
+          const buildP = launchTime / 0.5;
+          flame.material.opacity = buildP;
+          innerFlame.material.opacity = buildP;
+          engineLight.intensity = buildP * 3;
+          rocketGroup.position.x = (Math.random() - 0.5) * 0.04;
+          rocketGroup.position.z = (Math.random() - 0.5) * 0.04;
+          spawnSmoke();
+          spawnSmoke();
+          spawnThrusterParticles();
+          CameraShake.shake(0.15);
+        } else {
+          const ascentP = (launchTime - 0.5) / 3.5;
+          const ease = Math.pow(ascentP, 2.2);
+          rocketGroup.position.y = 0.4 + ease * 60;
+          flame.material.opacity = 1;
+          innerFlame.material.opacity = 1;
+          flame.scale.y = 1 + ease * 1.5;
+          engineLight.intensity = 3;
+
+          spawnThrusterParticles();
+          if (ascentP < 0.5) spawnSmoke();
+          CameraShake.shake(0.04);
+
+          // Camera tilts up
+          camHeight = 3.5 + ease * 4;
+        }
+
+        if (launchTime >= 4) {
+          state.phase = 'flying';
+          rocketGroup.visible = false;
+          flame.material.opacity = 0;
+          innerFlame.material.opacity = 0;
+          engineLight.intensity = 0;
+          cameraAuto = false;
+          startFlightTimer();
+        }
+      }
+
+      // Camera return after launch
+      if (state.phase === 'flying') {
+        camHeight += (3.5 - camHeight) * 0.03;
+      }
+
+      // Return sequence
+      if (state.phase === 'returnAnim') {
+        returnTime += dt;
+        const p = Math.min(returnTime / 3, 1);
+        rocketGroup.visible = true;
+        rocketGroup.position.y = 0.4 + (1 - p) * 50;
+        flame.material.opacity = (1 - p) * 0.5;
+        innerFlame.material.opacity = (1 - p) * 0.6;
+        engineLight.intensity = (1 - p) * 2;
+        if (p < 0.8) spawnSmoke();
+        CameraShake.shake(0.02);
+
+        if (returnTime >= 3) {
+          state.phase = 'claim';
+          rocketGroup.position.y = 0.4;
+          flame.material.opacity = 0;
+          innerFlame.material.opacity = 0;
+          engineLight.intensity = 0;
+          returnTime = 0;
+          showClaimModal();
+        }
+      }
+
+      // Storm lightning flash in 3D
+      if (state.phase === 'storm') {
+        if (Math.random() < 0.06) {
+          spawnStormArc();
+          CameraShake.shake(0.08);
+          const sunOrig = sun.intensity;
+          sun.intensity = 2.5;
+          setTimeout(() => { sun.intensity = sunOrig; }, 40);
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ============ UI ============
+
+    function updateUI() {
+      document.getElementById('credits').textContent = state.credits;
+      document.getElementById('domeText').textContent = `🏛 Купол «Гелиос»: ${state.buildProgress}/${state.buildTarget}`;
+      document.getElementById('domeFill').style.width = (state.buildProgress / state.buildTarget * 100) + '%';
+      renderBaysStatus();
+      renderLaunchBtn();
+    }
+
+    function renderBaysStatus() {
+      const el = document.getElementById('baysStatus');
+      el.innerHTML = '';
+      state.cargoBays.forEach((bay) => {
+        const res = RESOURCES[bay.resource];
+        const dot = document.createElement('div');
+        dot.className = 'bay-dot' + (bay.loaded ? ' loaded' : '');
+        dot.textContent = bay.loaded ? '✓' : res.icon;
+        el.appendChild(dot);
+      });
+    }
+
+    function renderLaunchBtn() {
+      const btn = document.getElementById('launchBtn');
+      if (state.phase !== 'loading') { btn.style.display = 'none'; return; }
+      const all = state.cargoBays.every(b => b.loaded);
+      btn.style.display = all ? 'block' : 'none';
+    }
+
+    window._doLaunch = function () {
+      try {
+        if (state.phase === 'loading' && state.cargoBays.every(b => b.loaded)) {
+          startPreLaunch();
+        } else {
+          toast('⚠️ phase:' + state.phase + ' loaded:' + state.cargoBays.filter(b => b.loaded).length + '/3');
+        }
+      } catch (err) {
+        toast('❌ ' + err.message);
+        console.error(err);
+      }
+    };
+
+
+    function showHint(text, duration = 3000) {
+      const el = document.getElementById('hint');
+      el.textContent = text;
+      el.style.display = 'block';
+      if (showHint._t) clearTimeout(showHint._t);
+      showHint._t = setTimeout(() => { el.style.display = 'none'; }, duration);
+    }
+
+    function showStatusBar(icon, text, pct) {
+      const el = document.getElementById('statusBar');
+      el.style.display = 'flex';
+      el.className = 'status-bar';
+      el.innerHTML = `
+    <div class="status-icon">${icon}</div>
+    <div class="status-info">
+      <div>${text}</div>
+      <div class="status-progress"><div class="status-progress-fill" style="width:${pct}%"></div></div>
+    </div>
+  `;
+    }
+
+    function clearStatusBar() {
+      document.getElementById('statusBar').style.display = 'none';
+    }
+
+    function toast(msg) {
+      const wrap = document.getElementById('toast-wrap');
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.textContent = msg;
+      wrap.appendChild(t);
+      setTimeout(() => t.remove(), 2400);
+    }
+
+    function showModal(html) {
+      document.getElementById('modal').innerHTML = '<div class="modal-handle"></div>' + html;
+      document.getElementById('modalBg').style.display = 'flex';
+    }
+
+    function hideModal() {
+      document.getElementById('modalBg').style.display = 'none';
+    }
+
+    document.getElementById('modalBg').addEventListener('click', (e) => {
+      if (e.target.id === 'modalBg' && state.phase === 'loading') hideModal();
+    });
+
+    // ============ GAME FLOW ============
+
+    function startGame() {
+      document.getElementById('intro').style.display = 'none';
+      initState(true);
+      createCargoMeshes();
+      updateUI();
+      Sound.playAmbience();
+      showHint('👆 Нажми на ящик чтобы загрузить');
+    }
+
+    function openBayModal(i) {
+      const bay = state.cargoBays[i];
+      if (bay.loaded) return;
+      const res = RESOURCES[bay.resource];
+      const have = state.inventory[bay.resource] || 0;
+      const hasEnough = have >= bay.amount;
+
+      const stockHtml = hasEnough
+        ? `На складе: <span class="have">${have} / ${bay.amount}</span> ✓`
+        : `На складе: <span class="lack">${have} / ${bay.amount}</span> · не хватает ${bay.amount - have}`;
+
+      let actionsHtml;
+      if (hasEnough) {
+        actionsHtml = `
+      <button class="btn btn-primary" onclick="loadBay(${i})">Загрузить в шаттл</button>
+      <button class="btn btn-ghost" onclick="hideModal()">Отмена</button>
+    `;
+      } else {
+        const lacking = bay.amount - have;
+        const cost = res.price * lacking;
+        actionsHtml = `
+      <button class="btn btn-credit" onclick="buyAndLoad(${i}, ${cost})">
+        💎 Купить ×${lacking} за ${cost}
+      </button>
+      <button class="btn btn-secondary" onclick="produceResource(${i})">
+        🏭 Произвести на ферме
+      </button>
+      <button class="btn btn-ghost" onclick="hideModal()">Закрыть</button>
+    `;
+      }
+
+      showModal(`
+    <div class="modal-title">Отсек ${i + 1}</div>
+    <div class="modal-subtitle">Груз для отправки на станцию «Гермес»</div>
+    <div class="resource-row">
+      <div class="r-icon">${res.icon}</div>
+      <div class="r-info">
+        <div class="r-name">${res.name} × ${bay.amount}</div>
+        <div class="r-stock">${stockHtml}</div>
+      </div>
+    </div>
+    ${actionsHtml}
+  `);
+    }
+
+    window.loadBay = function (i) {
+      const bay = state.cargoBays[i];
+      state.inventory[bay.resource] -= bay.amount;
+      bay.loaded = true;
+      hideModal();
+      animateCargoToRocket(i);
+    };
+
+    window.buyAndLoad = function (i, cost) {
+      if (state.credits < cost) { toast('Недостаточно кредитов'); return; }
+      const bay = state.cargoBays[i];
+      state.credits -= cost;
+      state.inventory[bay.resource] = 0;
+      bay.loaded = true;
+      hideModal();
+      toast(`Куплено за ${cost} 💎`);
+      animateCargoToRocket(i);
+    };
+
+    window.produceResource = function (i) {
+      hideModal();
+      const bay = state.cargoBays[i];
+      const need = bay.amount - (state.inventory[bay.resource] || 0);
+      const resName = RESOURCES[bay.resource].name;
+      let pct = 0;
+      showStatusBar('🏭', `Производство: ${resName} ×${need}`, 0);
+      const interval = setInterval(() => {
+        pct += 12;
+        showStatusBar('🏭', `Производство: ${resName} ×${need}`, Math.min(pct, 100));
+        if (pct >= 100) {
+          clearInterval(interval);
+          state.inventory[bay.resource] += need;
+          clearStatusBar();
+          toast(`Произведено: ${resName} ×${need}`);
+        }
+      }, 200);
+    };
+
+    function animateCargoToRocket(i) {
+      const mesh = cargoMeshes[i];
+      const start = { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z };
+      const end = {
+        x: Math.cos(-Math.PI / 2 + (i - 1) * 0.7) * 0.68,
+        y: 1.5,
+        z: Math.sin(-Math.PI / 2 + (i - 1) * 0.7) * 0.68
+      };
+      const startTime = performance.now();
+      const duration = 900;
+      const arcHeight = 2.5;
+
+      function step() {
+        const t = Math.min(1, (performance.now() - startTime) / duration);
+        const ease = 1 - Math.pow(1 - t, 3);
+        mesh.position.x = start.x + (end.x - start.x) * ease;
+        mesh.position.z = start.z + (end.z - start.z) * ease;
+        mesh.position.y = start.y + (end.y - start.y) * ease + Math.sin(t * Math.PI) * arcHeight;
+        mesh.scale.setScalar(1 - ease * 0.6);
+        mesh.rotation.y += 0.2;
+        mesh.rotation.x += 0.15;
+        if (t < 1) requestAnimationFrame(step);
+        else {
+          mesh.visible = false;
+          spawnLoadParticles(new THREE.Vector3(end.x, end.y, end.z), RESOURCES[state.cargoBays[i].resource].color);
+          CameraShake.shake(0.15);
+          const panel = bayPanels[i];
+          const res = RESOURCES[state.cargoBays[i].resource];
+          panel.material.color.set(0x00FF87);
+          panel.material.emissive = new THREE.Color(0x00aa44);
+          panel.material.emissiveIntensity = 0.8;
+          toast(`${res.name} в шаттле ✓`);
+          updateUI();
+        }
+      }
+      step();
+    }
+
+    // ============ PRE-LAUNCH OBSTACLES ============
+
+    function startPreLaunch() {
+      state.phase = 'balance';
+      cameraAuto = false;
+      showBalance();
+    }
+
+    function showBalance() {
+      try {
+        let devX = -35;
+        let devY = 40;
+        let targetX = -35;
+        let targetY = 40;
+        let baseGamma = null;
+        let baseBeta = null;
+        let orientationHandler = null;
+        let animId = null;
+        let synth = null;
+
+        Sound.init();
+        if (Sound.ctx) {
+          const osc = Sound.ctx.createOscillator();
+          const gain = Sound.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(300, Sound.ctx.currentTime);
+          gain.gain.setValueAtTime(0.001, Sound.ctx.currentTime);
+          osc.connect(gain);
+          gain.connect(Sound.ctx.destination);
+          osc.start();
+          synth = { osc, gain };
+        }
+
+        function updateLoop() {
+          devX += (targetX - devX) * 0.08;
+          devY += (targetY - devY) * 0.08;
+
+          targetX += Math.sin(performance.now() * 0.0015) * 0.15;
+          targetY += Math.cos(performance.now() * 0.0012) * 0.15;
+
+          const maxRadius = 65;
+          const dist = Math.sqrt(devX * devX + devY * devY);
+          if (dist > maxRadius) {
+            const angle = Math.atan2(devY, devX);
+            devX = Math.cos(angle) * maxRadius;
+            devY = Math.sin(angle) * maxRadius;
+          }
+
+          const ind = document.getElementById('radarInd');
+          if (ind) {
+            ind.style.transform = `translate(calc(-50% + ${devX}px), calc(-50% + ${devY}px))`;
+          }
+
+          if (rocketGroup) {
+            rocketGroup.rotation.z = -devX * 0.004;
+            rocketGroup.rotation.x = devY * 0.004;
+          }
+
+          const alignedDist = 18;
+          const inZone = dist < alignedDist;
+          const lockBtn = document.getElementById('lockBtn');
+          const pct = Math.max(0, Math.min(100, Math.round(100 - (dist / maxRadius) * 100)));
+
+          const pctDisplay = document.getElementById('radarPct');
+          if (pctDisplay) {
+            pctDisplay.textContent = inZone ? `ПОДКЛЮЧЕНО: ${pct}% (СТАБИЛЬНО)` : `СИНХРОНИЗАЦИЯ: ${pct}%`;
+            pctDisplay.style.color = inZone ? '#00FF87' : '#00E5FF';
+          }
+
+          if (lockBtn) {
+            lockBtn.disabled = !inZone;
+            lockBtn.className = 'btn ' + (inZone ? 'btn-primary' : 'btn-ghost');
+            lockBtn.textContent = inZone ? '✓ Синхронизировать вектор' : 'Синхронизировать (вне осей)';
+          }
+
+          if (ind) {
+            ind.style.background = inZone ? '#00FF87' : 'white';
+            ind.style.boxShadow = inZone ? '0 0 20px #00FF87' : '0 0 12px white';
+          }
+
+          if (synth) {
+            const targetFreq = inZone ? 580 : (300 + pct * 2.2);
+            const targetVol = inZone ? 0.08 : 0.03 + (pct / 100) * 0.03;
+            synth.osc.frequency.setTargetAtTime(targetFreq, Sound.ctx.currentTime, 0.08);
+            synth.gain.gain.setTargetAtTime(targetVol, Sound.ctx.currentTime, 0.08);
+          }
+
+          animId = requestAnimationFrame(updateLoop);
+        }
+
+        function onOrientation(e) {
+          const gamma = e.gamma;
+          const beta = e.beta;
+          if (gamma === null || beta === null) return;
+
+          if (baseGamma === null) {
+            baseGamma = gamma;
+            baseBeta = beta;
+          }
+
+          const tiltX = gamma - baseGamma;
+          const tiltY = beta - baseBeta;
+
+          const maxTilt = 15;
+          targetX = (tiltX / maxTilt) * 60;
+          targetY = (tiltY / maxTilt) * 60;
+
+          targetX = Math.max(-65, Math.min(65, targetX));
+          targetY = Math.max(-65, Math.min(65, targetY));
+        }
+
+        function stopGyro() {
+          if (orientationHandler) {
+            window.removeEventListener('deviceorientation', orientationHandler, true);
+            orientationHandler = null;
+          }
+          if (animId) {
+            cancelAnimationFrame(animId);
+            animId = null;
+          }
+          if (synth) {
+            try {
+              synth.osc.stop();
+            } catch (e) { }
+            synth = null;
+          }
+          if (rocketGroup) {
+            rocketGroup.rotation.set(0, 0, 0);
+          }
+        }
+
+        function activateGyro() {
+          orientationHandler = onOrientation;
+          window.addEventListener('deviceorientation', onOrientation, true);
+          baseGamma = null;
+          baseBeta = null;
+          const btn = document.getElementById('gyroActivateBtn');
+          const badge = document.getElementById('gyroBadge');
+          if (btn) btn.style.display = 'none';
+          if (badge) badge.style.display = 'block';
+          toast('📱 Наклоняй телефон для калибровки осей!');
+        }
+
+        window._enableGyro = async function () {
+          try {
+            const DOE = window.DeviceOrientationEvent;
+            if (DOE && typeof DOE.requestPermission === 'function') {
+              const perm = await DOE.requestPermission();
+              if (perm === 'granted') activateGyro();
+              else toast('Доступ отклонён — используй кнопки');
+            } else {
+              activateGyro();
+            }
+          } catch (err) {
+            toast('Ошибка: ' + err.message);
+          }
+        };
+
+        window._nudge = function (dx, dy) {
+          targetX += dx * 18;
+          targetY += dy * 18;
+          targetX = Math.max(-65, Math.min(65, targetX));
+          targetY = Math.max(-65, Math.min(65, targetY));
+        };
+
+        window._balanceDone = function () {
+          stopGyro();
+          hideModal();
+          Sound.playSuccess();
+          toast('📡 Навигация откалибрована!');
+          setTimeout(showFuel, 400);
+        };
+
+        animId = requestAnimationFrame(updateLoop);
+
+        showModal(`
+    <div class="modal-title">📡 Настройка навигации</div>
+    <div class="modal-subtitle">Совместите перекрестие телеметрии с орбитальным вектором маяка «Гермес»</div>
+    
+    <div class="radar-container">
+      <div class="radar-grid"></div>
+      <div class="radar-sweep"></div>
+      <div class="radar-target"></div>
+      <div class="radar-indicator" id="radarInd"></div>
+    </div>
+    <div class="radar-hud-info" id="radarPct">СИНХРОНИЗАЦИЯ: 0%</div>
+    
+    <div id="gyroBadge" class="gyro-badge" style="display:none; text-align:center; margin: 8px auto 12px; width: fit-content;">📱 Гироскоп: Наклоняйте телефон</div>
+    <button id="gyroActivateBtn" class="btn btn-secondary" onclick="window._enableGyro()" style="margin-bottom:10px; margin-top:12px;">📱 Активировать гироскоп</button>
+    
+    <div class="balance-controls" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-width: 200px; margin: 10px auto;">
+      <div></div>
+      <button class="btn btn-secondary" style="padding: 10px;" onclick="window._nudge(0, -1)">▲</button>
+      <div></div>
+      <button class="btn btn-secondary" style="padding: 10px;" onclick="window._nudge(-1, 0)">◀</button>
+      <div style="display:flex; align-items:center; justify-content:center; font-size:10px; color:rgba(255,255,255,0.4);">РУЧНОЙ</div>
+      <button class="btn btn-secondary" style="padding: 10px;" onclick="window._nudge(1, 0)">▶</button>
+      <div></div>
+      <button class="btn btn-secondary" style="padding: 10px;" onclick="window._nudge(0, 1)">▼</button>
+      <div></div>
+    </div>
+    
+    <button class="btn btn-ghost" id="lockBtn" disabled onclick="window._balanceDone()">Синхронизировать (вне осей)</button>
+  `);
+      } catch (err) {
+        toast('❌ Баланс: ' + err.message);
+        console.error('showBalance error:', err);
+      }
+    }
+
+    function showFuel() {
+      state.phase = 'fuel';
+
+      let currentFuel = state.fuel;
+      let targetSectorStart = 144;
+      let targetSectorWidth = 72;
+      let needleAngle = 0;
+      let animId = null;
+      let speed = 4.5;
+
+      function updateReactorLoop() {
+        needleAngle = (needleAngle + speed) % 360;
+        const needle = document.getElementById('reactorNeedle');
+        if (needle) {
+          needle.style.transform = `translateX(-50%) rotate(${needleAngle}deg)`;
+        }
+        animId = requestAnimationFrame(updateReactorLoop);
+      }
+
+      window._stabilizeCore = function () {
+        const end = (targetSectorStart + targetSectorWidth) % 360;
+        let success = false;
+        if (targetSectorStart < end) {
+          success = needleAngle >= targetSectorStart && needleAngle <= end;
+        } else {
+          success = needleAngle >= targetSectorStart || needleAngle <= end;
+        }
+
+        if (success) {
+          currentFuel++;
+          Sound.playCoilSuccess();
+          CameraShake.shake(0.12);
+          toast('⚛️ Контур стабилизирован!');
+          renderCanisters();
+
+          if (currentFuel >= state.fuelNeeded) {
+            cancelAnimationFrame(animId);
+            state.fuel = state.fuelNeeded;
+            hideModal();
+            Sound.playSuccess();
+            toast('⚛️ Реактор стабилен!');
+            setTimeout(showStorm, 500);
+          } else {
+            targetSectorStart = Math.floor(Math.random() * 280);
+            const sectorEl = document.getElementById('reactorSector');
+            const lineEl = document.getElementById('reactorLine');
+            if (sectorEl && lineEl) {
+              sectorEl.style.background = `conic-gradient(from ${targetSectorStart}deg, transparent 0deg, rgba(0, 255, 135, 0.25) 0deg, rgba(0, 255, 135, 0.25) ${targetSectorWidth}deg, transparent ${targetSectorWidth}deg)`;
+              lineEl.style.transform = `translateX(-50%) rotate(${(targetSectorStart + targetSectorWidth / 2)}deg)`;
+            }
+          }
+        } else {
+          Sound.playError();
+          CameraShake.shake(0.35);
+          toast('⚠️ Нестабильность! Промах.');
+
+          const core = document.getElementById('reactorCore');
+          if (core) {
+            core.style.borderColor = '#FF2E93';
+            core.style.boxShadow = '0 0 40px rgba(255, 46, 147, 0.6)';
+            setTimeout(() => {
+              core.style.borderColor = '';
+              core.style.boxShadow = '';
+            }, 300);
+          }
+        }
+      };
+
+      function renderCanisters() {
+        const canisters = document.getElementById('reactorCanisters');
+        const txt = document.getElementById('reactorCountTxt');
+        if (canisters && txt) {
+          canisters.innerHTML = Array.from({ length: state.fuelNeeded }, (_, i) =>
+            `<div class="canister ${i < currentFuel ? 'full' : ''}">⚛️</div>`
+          ).join('');
+          txt.textContent = `Стабильно контуров: ${currentFuel} / ${state.fuelNeeded}`;
+        }
+      }
+
+      window._buyFuel = function () {
+        if (state.credits < 120) { toast('Недостаточно кредитов'); return; }
+        cancelAnimationFrame(animId);
+        state.credits -= 120;
+        state.fuel = state.fuelNeeded;
+        hideModal();
+        updateUI();
+        Sound.playSuccess();
+        toast('Реактор запущен');
+        setTimeout(showStorm, 500);
+      };
+
+      animId = requestAnimationFrame(updateReactorLoop);
+
+      showModal(`
+    <div class="modal-title">⚛️ Стабилизация реактора</div>
+    <div class="modal-subtitle">Синхронизируйте импульс накачки, когда стрелка находится в зеленом секторе стабильности</div>
+    
+    <div class="reactor-container" id="reactorCore">
+      <div class="reactor-target-sector" id="reactorSector" style="background: conic-gradient(from ${targetSectorStart}deg, transparent 0deg, rgba(0, 255, 135, 0.25) 0deg, rgba(0, 255, 135, 0.25) ${targetSectorWidth}deg, transparent ${targetSectorWidth}deg);"></div>
+      <div class="reactor-target-line" id="reactorLine" style="transform: translateX(-50%) rotate(${(targetSectorStart + targetSectorWidth / 2)}deg);"></div>
+      <div class="reactor-needle" id="reactorNeedle"></div>
+      <div class="reactor-center"></div>
+    </div>
+    
+    <div id="reactorCanisters" class="canisters">
+      ${Array.from({ length: state.fuelNeeded }, (_, i) =>
+        `<div class="canister ${i < currentFuel ? 'full' : ''}">⚛️</div>`
+      ).join('')}
+    </div>
+    <div class="center-text" id="reactorCountTxt">Стабильно контуров: <b>${currentFuel} / ${state.fuelNeeded}</b></div>
+    
+    <button class="btn btn-primary" onclick="window._stabilizeCore()">⚡ СТАБИЛИЗИРОВАТЬ КОНТУР</button>
+    <button class="btn btn-credit" onclick="window._buyFuel()">💎 Купить ячейки плазмы за 120</button>
+  `);
+    }
+
+    function spawnCSSSparks(x, y, color = '#b450ff') {
+      const count = 12;
+      const colors = [color, '#58c8fa', '#ffffff'];
+      for (let i = 0; i < count; i++) {
+        const p = document.createElement('div');
+        p.className = 'spark-particle';
+        p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        p.style.left = x + 'px';
+        p.style.top = y + 'px';
+
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 40 + Math.random() * 80;
+        const tx = Math.cos(angle) * distance;
+        const ty = Math.sin(angle) * distance;
+        const rot = Math.random() * 360;
+
+        p.style.setProperty('--tx', tx + 'px');
+        p.style.setProperty('--ty', ty + 'px');
+        p.style.setProperty('--rot', rot + 'deg');
+
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 600);
+      }
+    }
+
+    function showStorm() {
+      state.phase = 'storm';
+      let seconds = state.stormSeconds;
+
+      window._handleStormTap = function (event) {
+        if (event) event.preventDefault();
+
+        let x = window.innerWidth / 2;
+        let y = window.innerHeight / 2 - 100;
+        if (event) {
+          if (event.clientX !== undefined) {
+            x = event.clientX;
+            y = event.clientY;
+          } else if (event.touches && event.touches[0]) {
+            x = event.touches[0].clientX;
+            y = event.touches[0].clientY;
+          }
+        }
+
+        seconds -= 0.5;
+        if (seconds < 0) seconds = 0;
+
+        const shield = document.getElementById('shieldOverlay');
+        if (shield) {
+          shield.classList.add('hit');
+          setTimeout(() => shield.classList.remove('hit'), 120);
+        }
+
+        CameraShake.shake(0.08);
+        spawnStormArc();
+        spawnCSSSparks(x, y, '#b450ff');
+
+        const tornado = document.getElementById('stormTornado');
+        if (tornado) {
+          tornado.style.transform = 'scale(0.8) rotate(' + (Math.random() * 30 - 15) + 'deg)';
+          setTimeout(() => {
+            tornado.style.transform = '';
+          }, 70);
+
+          const wrap = tornado.parentElement;
+          const rect = wrap.getBoundingClientRect();
+          const relativeX = event ? (x - rect.left) : (rect.width / 2);
+          const relativeY = event ? (y - rect.top) : (rect.height / 2);
+
+          const floatText = document.createElement('div');
+          floatText.className = 'tap-effect';
+          floatText.style.left = relativeX + 'px';
+          floatText.style.top = relativeY + 'px';
+          floatText.textContent = '-0.5с';
+          wrap.appendChild(floatText);
+
+          setTimeout(() => { floatText.remove(); }, 500);
+        }
+
+        const min = Math.floor(seconds / 60);
+        const sec = String(Math.floor(seconds) % 60).padStart(2, '0');
+        const display = document.getElementById('stormTimerDisplay');
+        if (display) display.textContent = `${min}:${sec}`;
+
+        if (seconds <= 0) {
+          clearInterval(window._stormInt);
+          finishStorm();
+        }
+      };
+
+      const render = () => {
+        const min = Math.floor(seconds / 60);
+        const sec = String(Math.floor(seconds) % 60).padStart(2, '0');
+        showModal(`
+      <style>
+        .storm-tapper {
+          cursor: pointer;
+          user-select: none;
+          -webkit-user-select: none;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .tap-effect {
+          position: absolute;
+          font-weight: 800;
+          font-size: 22px;
+          color: #58c8fa;
+          text-shadow: 0 0 10px rgba(88,200,250,0.8);
+          pointer-events: none;
+          z-index: 100;
+          animation: floatUpFade 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+        }
+        @keyframes floatUpFade {
+          0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5) translateY(0); }
+          20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9) translateY(-50px); }
+        }
+      </style>
+      <div class="modal-title">⚡ Геомагнитный шторм</div>
+      <div class="modal-subtitle">ЭМИ-помехи блокируют запуск. Сбросьте статический заряд!</div>
+      
+      <div class="storm-tap-area" style="position: relative; margin: 15px auto 5px; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center;">
+        <div class="obstacle-visual bob storm-tapper" id="stormTornado" onpointerdown="window._handleStormTap(event)" style="font-size: 75px; margin: 0; transition: transform 0.08s ease;">🌀</div>
+      </div>
+      
+      <div style="font-size: 13px; color: #a4b0be; margin-bottom: 12px; font-weight: 500; line-height: 1.4; text-align:center;">
+        👉 Тапайте по аномалии, чтобы разрядить щит!<br>
+        <b style="color: #00FF87;">-0.5 сек</b> за каждый тап!
+      </div>
+      
+      <div class="timer-display" id="stormTimerDisplay">${min}:${sec}</div>
+      <button class="btn btn-credit" onclick="window._skipStorm()">💎 Запустить ЭМИ-абсорбер — 45</button>
+      <button class="btn btn-ghost" disabled>Ожидание...</button>
+    `);
+      };
+
+      render();
+
+      window._stormInt = setInterval(() => {
+        seconds--;
+        if (seconds <= 0) {
+          clearInterval(window._stormInt);
+          finishStorm();
+        } else {
+          const min = Math.floor(seconds / 60);
+          const sec = String(Math.floor(seconds) % 60).padStart(2, '0');
+          const display = document.getElementById('stormTimerDisplay');
+          if (display) display.textContent = `${min}:${sec}`;
+        }
+      }, 1000);
+    }
+
+    window._skipStorm = function () {
+      if (state.credits < 45) { toast('Недостаточно кредитов'); return; }
+      state.credits -= 45;
+      clearInterval(window._stormInt);
+      toast('ЭМИ-абсорбер поглотил шторм');
+      finishStorm();
+    };
+
+    function finishStorm() {
+      hideModal();
+      updateUI();
+      setTimeout(launchShuttle, 500);
+    }
+
+    // ============ LAUNCH ============
+
+    function launchShuttle() {
+      state.phase = 'launchAnim';
+      launchTime = 0;
+      Sound.playLaunchRumble();
+      toast('🚀 ЗАПУСК!');
+      showHint('Шаттл стартует...', 4000);
+    }
+
+    function startFlightTimer() {
+      let seconds = state.flightSeconds;
+      showStatusBar('🛰️', `Шаттл в пути → Гермес · ${seconds}с`, 0);
+      const interval = setInterval(() => {
+        seconds--;
+        const pct = ((state.flightSeconds - seconds) / state.flightSeconds) * 100;
+        showStatusBar('🛰️', `Шаттл в пути → Гермес · ${Math.max(0, seconds)}с`, pct);
+        if (seconds <= 0) {
+          clearInterval(interval);
+          clearStatusBar();
+          state.phase = 'returnAnim';
+          returnTime = 0;
+          toast('Шаттл возвращается!');
+        }
+      }, 1000);
+    }
+
+    function showClaimModal() {
+      const rewards = [...REWARD_POOL].sort(() => Math.random() - 0.5).slice(0, 3).map(r => ({
+        ...r, amount: Math.ceil(Math.random() * 3) + 1
+      }));
+      state.pendingRewards = rewards;
+      const items = rewards.map(r => `
+    <div class="reward-item">
+      <div class="reward-icon">${r.icon}</div>
+      <div class="reward-amount">×${r.amount}</div>
+      <div class="reward-name">${r.name}</div>
+    </div>
+  `).join('');
+      showModal(`
+    <div class="modal-title" style="text-align:center;">🎁 Груз доставлен!</div>
+    <div class="modal-subtitle" style="text-align:center;">Станция «Гермес» прислала груз. +80 💎 от сделки.</div>
+    <div class="reward-grid">${items}</div>
+    <button class="btn btn-primary" onclick="window._claim()">Забрать груз</button>
+  `);
+    }
+
+    window._claim = function () {
+      state.buildProgress = Math.min(state.buildTarget, state.buildProgress + 1);
+      state.credits += 80;
+      hideModal();
+
+      // Reset bay panels
+      bayPanels.forEach(p => {
+        p.material.color.set(0x333333);
+        p.material.emissive = new THREE.Color(0x000000);
+      });
+
+      if (state.buildProgress >= state.buildTarget) {
+        setTimeout(showBuildComplete, 400);
+      } else {
+        setTimeout(() => {
+          state.phase = 'loading';
+          state.cargoBays = generateBays(false);
+          state.fuel = Math.floor(Math.random() * 2);
+          state.fuelNeeded = 3;
+          state.stormSeconds = 8 + Math.floor(Math.random() * 6);
+          Object.keys(state.inventory).forEach(k => {
+            state.inventory[k] += Math.floor(Math.random() * 3);
+          });
+          createCargoMeshes();
+          cargoMeshes.forEach(m => { m.visible = true; m.scale.setScalar(1); });
+          cameraAuto = true;
+          updateUI();
+          toast('🚀 Новый шаттл прибыл');
+          showHint('Загрузи 3 отсека для нового запуска');
+        }, 600);
+      }
+    };
+
+    function showBuildComplete() {
+      showModal(`
+    <div class="modal-title" style="text-align:center;">🏛️ Купол «Гелиос» построен!</div>
+    <div class="obstacle-visual" style="font-size:80px;">🎉</div>
+    <div class="modal-subtitle" style="text-align:center;">
+      Колония расширяется. Исследовательский центр открыт.
+    </div>
+    <button class="btn btn-primary" onclick="window._restart()">Начать новый цикл</button>
+  `);
+    }
+
+    window._restart = function () {
+      hideModal();
+      document.getElementById('intro').style.display = 'block';
+    };
+
+    // ============ INIT ============
+
+    updateCamera();
+    animate();
+
+    // Hide loading
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        document.getElementById('loading').style.opacity = '0';
+        document.getElementById('loading').style.transition = 'opacity 0.5s';
+        setTimeout(() => document.getElementById('loading').style.display = 'none', 500);
+      }, 600);
+    });
+
+    // Make startGame globally accessible
+    window.startGame = startGame;
+  </script>
+</body>
+
+</html>
